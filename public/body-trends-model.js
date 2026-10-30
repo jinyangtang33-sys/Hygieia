@@ -1,0 +1,14 @@
+function createBodyTrendsModel(){
+  const known=v=>typeof v==='number'&&Number.isFinite(v);
+  const validDate=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&Number.isFinite(Date.parse(d))&&new Date(d+'T12:00:00Z').toISOString().slice(0,10)===d;
+  const shift=(d,n)=>new Date(Date.parse(d+'T12:00:00Z')+n*86400000).toISOString().slice(0,10);
+  const instant=t=>Date.parse(t+':00+08:00');
+  function history(reports,cutoff){if(!validDate(cutoff))return [];return reports.filter(r=>r&&typeof r.id==='string'&&typeof r.measuredAt==='string'&&/^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d$/.test(r.measuredAt)&&validDate(r.measuredAt.slice(0,10))&&r.measuredAt.slice(0,10)<=cutoff&&r.metrics&&typeof r.metrics==='object').slice().sort((a,b)=>a.measuredAt.localeCompare(b.measuredAt)||a.id.localeCompare(b.id));}
+  function series(reports,cutoff,key,period=30){const all=history(reports,cutoff);if(!validDate(cutoff))return {reports:[],points:[],start:'',end:'',first:null,last:null,delta:null};const days=[7,30,90,365].includes(period)?period:30,start=period==='all'?(all[0]?.measuredAt.slice(0,10)||cutoff):shift(cutoff,1-days),selected=all.filter(r=>r.measuredAt.slice(0,10)>=start),points=selected.map(r=>({id:r.id,time:r.measuredAt,x:instant(r.measuredAt),value:known(r.metrics[key])?r.metrics[key]:null,source:r.source||'体脂秤'})),values=points.filter(p=>p.value!==null),first=values[0]||null,last=values.at(-1)||null;
+    return {reports:selected,points,start,end:cutoff,from:instant(start+'T00:00'),until:instant(cutoff+'T23:59'),first,last,count:values.length,missing:points.length-values.length,delta:values.length>=2?difference(first.value,last.value):null};}
+  function difference(a,b){if(!known(a)||!known(b))return null;const n=Math.round((b-a)*1e8)/1e8;return Object.is(n,-0)?0:n;}
+  function compare(reports,cutoff,idA,idB,fields){const all=history(reports,cutoff),a=all.find(r=>r.id===idA),b=all.find(r=>r.id===idB);if(!a||!b||a.id===b.id)return null;const [earlier,later]=a.measuredAt<=b.measuredAt?[a,b]:[b,a];return {earlier,later,differentSources:earlier.source!==later.source,rows:fields.map(f=>({key:f.key,label:f.label,unit:f.unit,deltaUnit:f.unit==='%'?'百分点':f.unit,before:known(earlier.metrics[f.key])?earlier.metrics[f.key]:null,after:known(later.metrics[f.key])?later.metrics[f.key]:null,delta:difference(earlier.metrics[f.key],later.metrics[f.key])}))};}
+  function domain(points,min=-Infinity,max=Infinity){const values=points.filter(p=>known(p.value)).map(p=>p.value);if(!values.length)return {low:0,high:1};let low=Math.min(...values),high=Math.max(...values);const pad=Math.max((high-low)*.15,Math.max(Math.abs(low),Math.abs(high))*.002,.05);low=Math.max(min,low-pad);high=Math.min(max,high+pad);if(high<=low){low=Math.max(min,low-.1);high=Math.min(max,high+.1);}return {low,high};}
+  return {history,series,compare,difference,domain,instant};
+}
+const BodyTrendsModel=createBodyTrendsModel();

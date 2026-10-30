@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+const base='http://127.0.0.1:8792',a='isolated-backup-owner',b='isolated-backup-other';
+const headers=user=>({'Content-Type':'application/json',Origin:base,'oai-authenticated-user-id':user});
+const status=async promise=>{const response=await promise;await response.arrayBuffer();return response.status;};
+const enroll=()=>fetch(base+'/api/backups/enroll',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+const save=user=>fetch(base+'/api/personal',{method:'POST',headers:headers(user),body:JSON.stringify({owner:user,operations:[{id:randomUUID(),key:'day/2026-10-16/journal',value:'本机隔离配置测试',baseRevision:0}]})});
+let r=await enroll();assert.equal(r.status,409);await r.arrayBuffer();
+assert.equal(await status(fetch(base+'/api/backups/enroll',{method:'POST',headers:headers(a),body:'{}'})),403);
+assert.equal(await status(fetch(base+'/api/backups/enroll',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({owner:a})})),422);
+await save(a);r=await enroll();assert.equal(r.status,200,await r.clone().text());let d=await r.json();assert.equal(d.enabled,true);assert.equal(d.enrolled,true);
+r=await enroll();assert.equal((await r.json()).enrolled,false);
+r=await fetch(base+'/api/backups/daily',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});assert.equal(r.status,200);d=await r.json();assert.equal(d.enabledJobs,1);assert.equal(d.results[0].status,'success');
+await fetch(base+'/api/backups',{method:'POST',headers:headers(a),body:JSON.stringify({owner:a,action:'schedule-disable'})});r=await enroll();d=await r.json();assert.equal(d.enabled,false);assert.equal(d.paused,true);
+await save(b);r=await enroll();assert.equal(r.status,409);d=await(await fetch(base+'/api/backups',{headers:headers(b)})).json();assert.equal(d.scheduled,null);
+console.log('PASS private setup rejects ambiguous/empty scopes, enrolls the sole scope once, preserves pause and supports unattended snapshot readback.');

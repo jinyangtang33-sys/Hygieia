@@ -1,0 +1,17 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {parseHealthExport} from './lib/health-format.mjs';
+const daily=(name,units,data)=>({data:{metrics:[{name,units,data}]}});
+const date='2026-10-14';
+test('daily step snapshots are not accumulated across retries',()=>{const p=daily('step_count','count',[{date:date+' 00:00:00 +0800',qty:6800}]);const first=parseHealthExport(p,'Days');assert.deepEqual(parseHealthExport(p,'Days'),first);assert.equal(first.rows[0].value.steps,6800);assert.equal(first.rows[0].date,date);});
+test('sleep uses totalSleep without adding overlapping phase durations',()=>{const p=daily('sleep_analysis','hr',[{date,totalSleep:7.5,asleep:7.5,deep:1.5,core:4,rem:2,sleepStart:'2026-10-13 23:00:00 +0800',sleepEnd:'2026-10-14 06:30:00 +0800'}]);const r=parseHealthExport(p,'Days').rows[0];assert.equal(r.date,date);assert.deepEqual(r.value,{sleep:7.5,coreSleep:4,deepSleep:1.5,remSleep:2,sleepStart:'2026-10-13 23:00:00 +0800',sleepEnd:'2026-10-14 06:30:00 +0800'});});
+test('heart rate summaries preserve average, minimum and maximum',()=>assert.deepEqual(parseHealthExport(daily('heart_rate','bpm',[{date,Avg:72,Min:50,Max:120}]),'Days').rows[0].value,{heartRate:72,heartRateMin:50,heartRateMax:120}));
+test('energy and water units convert before storage',()=>{assert.equal(parseHealthExport(daily('active_energy','kJ',[{date,qty:418.4}]),'Days').rows[0].value.activeEnergy,100);assert.equal(parseHealthExport(daily('dietary_water','L',[{date,qty:1.5}]),'Days').rows[0].value.water,1500);});
+test('HRV seconds convert to milliseconds',()=>assert.equal(parseHealthExport(daily('heart_rate_variability','s',[{date,qty:.045}]),'Days').rows[0].value.hrv,45));
+test('hourly or unlabelled exports cannot replace daily snapshots',()=>{for(const grouping of ['Hours','',null])assert.throws(()=>parseHealthExport(daily('step_count','count',[{date,qty:10}]),grouping));});
+test('non-midnight time samples are rejected even if labelled daily',()=>assert.throws(()=>parseHealthExport(daily('step_count','count',[{date:date+' 12:00:00 +0800',qty:10}]),'Days')));
+test('multiple sources for the same daily metric are rejected',()=>assert.throws(()=>parseHealthExport(daily('step_count','count',[{date,qty:100,source:'iPhone'},{date,qty:100,source:'Watch'}]),'Days')));
+test('raw sleep segments cannot be mistaken for total sleep',()=>assert.throws(()=>parseHealthExport(daily('sleep_analysis','hr',[{date,qty:.5,value:'Core',startDate:date}]),'Days')));
+test('impossible dates, future dates, strings and negative quantities fail',()=>{for(const item of [{date:'2026-02-30',qty:1},{date:'2099-01-01',qty:1},{date,qty:'10'},{date,qty:-1}])assert.throws(()=>parseHealthExport(daily('step_count','count',[item]),'Days'));});
+test('unknown fields never become persisted metrics',()=>{const p={metrics:[{name:'step_count',units:'count',data:[{date,qty:10,privateNote:'ignore'}]},{name:'unknown_type',units:'count',data:[{date,qty:100}]}]};const r=parseHealthExport(p,'Days');assert.equal(r.rows.length,1);assert.deepEqual(r.rows[0].value,{steps:10});assert.deepEqual(r.ignored,['unknown_type']);});
+test('a malformed metric aborts the entire export',()=>assert.throws(()=>parseHealthExport({metrics:[{name:'step_count',units:'count',data:[{date,qty:10}]},{name:'resting_heart_rate',units:'bpm',data:[{date,qty:-5}]}]},'Days')));

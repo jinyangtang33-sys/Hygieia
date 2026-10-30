@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url),{client}=require('./personal-browser-harness.cjs');
+const base=process.env.PERSONAL_TEST_BASE||'http://127.0.0.1:8787';if(!['127.0.0.1','localhost','[::1]'].includes(new URL(base).hostname))throw Error('Loopback only');
+const owner='synthetic-media-'+randomUUID(),other='synthetic-media-other-'+randomUUID(),headers={'oai-authenticated-user-id':owner,Origin:base,'Content-Type':'application/json'};
+const v={id:randomUUID(),title:'本机测试选题',platform:'自定义平台',format:'短视频',status:'待发布',plannedDate:'2026-12-01',publishedDate:'',url:'',script:'测试脚本',notes:'',views:null,likes:null,comments:null,saves:null,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+const a=client({base,owner}),b=client({base,owner});await a.sync();b.context.navigator.onLine=true;await b.sync();a.commit('s=>s.media.push('+JSON.stringify(v)+')');await a.sync();await b.sync();assert.deepEqual(b.state().media,[v]);assert.equal(a.pending().length,0);const isolated=client({base,owner:other});await isolated.sync();assert.equal(isolated.state().media.length,0);
+console.log('PASS content syncs to a second device and stays private to its owner');
+b.context.navigator.onLine=false;b.commit('s=>s.media[0].script="断网时补写脚本"');const reloaded=client({base,owner,storage:b.storage});await reloaded.sync();await a.sync();assert.equal(a.state().media[0].script,'断网时补写脚本');
+console.log('PASS offline script survives browser reload and uploads after reconnecting');
+b.context.navigator.onLine=true;await b.sync();a.commit('s=>s.media[0].title="电脑修改"');b.commit('s=>s.media[0].title="手机修改"');await a.sync();await b.sync();assert.match(b.status(),/冲突/);assert.equal(b.state().media[0].title,'手机修改');b.run('PersonalSync.resolve('+JSON.stringify('media/'+v.id)+',true)');await b.sync();await a.sync();assert.equal(a.state().media[0].title,'手机修改');
+console.log('PASS concurrent edits keep both versions for explicit resolution');
+const bad=await fetch(base+'/api/personal',{method:'POST',headers,body:JSON.stringify({owner,operations:[{id:randomUUID(),key:'media/'+v.id,value:{...v,url:'javascript:alert(1)'},baseRevision:0}]})});assert.equal(bad.status,422);
+const call=async body=>{const r=await fetch(base+'/api/backups',{method:'POST',headers,body:JSON.stringify({owner,...body})});assert.equal(r.status,200,await r.clone().text());return r.json();};
+const point=await call({action:'create'});const backup=await(await fetch(base+'/api/backups?id='+encodeURIComponent(point.id),{headers})).json();assert.equal(backup.personal.find(r=>r.key==='media/'+v.id).value.title,'手机修改');
+a.commit('s=>s.media=[]');await a.sync();await b.sync();assert.equal(b.state().media.length,0);const info=await(await fetch(base+'/api/backups',{headers})).json();await call({action:'restore',id:randomUUID(),expected:info.revision,backup,mode:'replace',includeHealth:false});await a.run('PersonalSync.reload()');assert.equal(a.state().media[0].title,'手机修改');
+console.log('PASS invalid content rejected; deletion syncs; cloud backup restores complete content and script');

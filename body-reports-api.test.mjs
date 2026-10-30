@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url),{client}=require('./personal-browser-harness.cjs');
+const base=process.env.PERSONAL_TEST_BASE||'http://127.0.0.1:8787';if(!['127.0.0.1','localhost','[::1]'].includes(new URL(base).hostname))throw Error('Loopback only');
+const owner='synthetic-body-'+randomUUID(),other='synthetic-body-other-'+randomUUID(),headers={'oai-authenticated-user-id':owner,Origin:base,'Content-Type':'application/json'};
+const r={id:'scale-202610120930',measuredAt:'2026-10-12T09:30',source:'本机测试秤',notes:'合成数据',metrics:{weight:70.5,bmi:24,bodyFatPercent:20,weightControl:0,fatControl:-1.5},createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+const a=client({base,owner}),b=client({base,owner});await a.sync();await b.sync();a.commit('s=>s.bodyReports.push('+JSON.stringify(r)+')');await a.sync();await b.sync();assert.deepEqual(b.state().bodyReports,[r]);assert.equal(b.run('day("2026-10-12").health.weight'),70.5);const isolated=client({base,owner:other});await isolated.sync();assert.equal(isolated.state().bodyReports.length,0);
+console.log('PASS report syncs across devices and stays private to its owner');
+b.context.navigator.onLine=false;b.commit('s=>s.bodyReports[0].notes="离线核对后的备注"');const resumed=client({base,owner,storage:b.storage});await resumed.sync();await a.sync();assert.equal(a.state().bodyReports[0].notes,'离线核对后的备注');b.context.navigator.onLine=true;await b.sync();
+a.commit('s=>s.bodyReports[0].metrics.weight=71');b.commit('s=>s.bodyReports[0].metrics.weight=72');await a.sync();await b.sync();assert.match(b.status(),/冲突/);assert.equal(b.state().bodyReports.length,1);b.run('PersonalSync.resolve("body-report/scale-202610120930",true)');await b.sync();await a.sync();assert.equal(a.state().bodyReports[0].metrics.weight,72);
+console.log('PASS offline edits survive reload; repeated timestamp updates never duplicate reports and conflicts preserve both versions');
+const bad=await fetch(base+'/api/personal',{method:'POST',headers,body:JSON.stringify({owner,operations:[{id:randomUUID(),key:'body-report/'+r.id,value:{...r,metrics:{weight:70,bodyFatPercent:200}},baseRevision:0}]})});assert.equal(bad.status,422);
+const api=async body=>{const res=await fetch(base+'/api/backups',{method:'POST',headers,body:JSON.stringify({owner,...body})});assert.equal(res.status,200,await res.clone().text());return res.json();};
+const point=await api({action:'create'}),backup=await(await fetch(base+'/api/backups?id='+encodeURIComponent(point.id),{headers})).json();assert.equal(backup.personal.find(v=>v.key==='body-report/'+r.id).value.metrics.fatControl,-1.5);
+a.commit('s=>s.bodyReports=[]');await a.sync();await b.sync();assert.equal(b.state().bodyReports.length,0);const info=await(await fetch(base+'/api/backups',{headers})).json();await api({action:'restore',id:randomUUID(),expected:info.revision,backup,mode:'replace',includeHealth:false});await a.run('PersonalSync.reload()');assert.equal(a.state().bodyReports[0].metrics.weight,72);
+console.log('PASS invalid metrics reject; cloud recovery points restore complete reports with signed controls');

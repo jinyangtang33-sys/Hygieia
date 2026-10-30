@@ -1,0 +1,1 @@
+Browser OCR assets, self-hosted. Tesseract.js 7.0.0 and tesseract.js-core 7.0.0 (Apache-2.0); @tesseract.js-data/chi_sim and eng 1.0.0, 4.0.0_best_int models (Apache-2.0 as declared in their npm packages). Source: https://github.com/naptha/tesseract.js and corresponding fixed npm packages. No user images or measurements are included. Checksums: SHA256SUMS.json.

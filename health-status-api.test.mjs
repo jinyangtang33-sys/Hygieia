@@ -1,0 +1,23 @@
+// Loopback-only synthetic fixtures; never run against the hosted private site.
+import assert from 'node:assert/strict';
+const base=process.env.HEALTH_TEST_BASE||'http://127.0.0.1:8787';
+if(!['127.0.0.1','localhost','[::1]'].includes(new URL(base).hostname))throw new Error('Local preview only');
+const token='hax_'+'a'.repeat(64),auth={'Authorization':'Bearer '+token,'Content-Type':'application/json'};
+const owner='synthetic-health-status-owner';
+const payload={version:2,pendingDays:2,lastReceived:new Date().toISOString(),lastForwarded:null,lastAttempt:null,errorCode:'upload_failed'};
+const post=(data,headers=auth)=>fetch(base+'/api/health/status',{method:'POST',headers,body:JSON.stringify(data)});
+const read=async(user=owner)=>{const r=await fetch(base+'/api/health',{headers:{'oai-authenticated-user-id':user}});assert.equal(r.status,200);return r.json();};
+assert.equal((await post(payload,{'Content-Type':'application/json'})).status,401);
+assert.equal((await post({...payload,pendingDays:-1})).status,422);
+assert.equal((await post(payload)).status,200);
+const saved=await read();assert.equal(saved.connection.bridge.pendingDays,2);assert.ok(saved.connection.bridgeSeenAt);assert.equal(saved.connection.lastSync,null);
+assert.equal((await read('synthetic-health-other')).connection,null);
+assert.equal((await fetch(base+'/api/health',{headers:auth})).status,401);
+assert.equal((await post({...payload,errorCode:'private server response'})).status,422);
+assert.equal((await read()).connection.bridge.errorCode,'upload_failed');
+assert.equal((await post({...payload,pendingDays:0,errorCode:null})).status,200);
+assert.equal((await read()).connection.bridge.pendingDays,0);
+assert.equal((await fetch(base+'/api/health/connection',{method:'DELETE',headers:{Origin:base,'oai-authenticated-user-id':owner}})).status,200);
+assert.equal((await post(payload)).status,401);
+assert.equal((await read()).connection.enabled,false);
+console.log('PASS health heartbeat auth, user isolation, validation, metadata-only updates and revoked-key rejection');

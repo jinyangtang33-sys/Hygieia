@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#3e5844">
+  <meta name="description" content="观己，你的个人数据中心。在这里记录健康、三餐、工作与资产，看见每一天的积累。">
+  <title>观己 · 个人数据中心</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css?v=tasks-20261028">
+  <script src="health-sync.js?v=tasks-20261028" defer></script>
+  <script src="personal-sync.js?v=tasks-20261028" defer></script>
+  <script src="backup-center.js?v=tasks-20261028" defer></script>
+  <script src="asset-ledger.js?v=tasks-20261028" defer></script>
+  <script src="weekly-review.js?v=tasks-20261028" defer></script>
+  <script src="life-calendar.js?v=tasks-20261028" defer></script>
+  <script src="date-navigation.js?v=tasks-20261028" defer></script>
+  <script src="media-accounts.js?v=tasks-20261028" defer></script>
+  <script src="media-topic-model.js?v=tasks-20261028" defer></script>
+  <script src="media-topics.js?v=tasks-20261028" defer></script>
+  <script src="media-history-model.js?v=tasks-20261028" defer></script>
+  <script src="media-history.js?v=tasks-20261028" defer></script>
+  <script src="self-media.js?v=tasks-20261028" defer></script>
+  <script src="body-model.js?v=tasks-20261028" defer></script>
+  <script src="body-layout.js?v=tasks-20261028" defer></script>
+  <script src="body-reports.js?v=tasks-20261028" defer></script>
+  <script src="fitness-model.js?v=tasks-20261028" defer></script>
+  <script src="fitness.js?v=tasks-20261028" defer></script>
+  <script src="draft-model.js?v=tasks-20261028" defer></script>
+  <script src="draft-center.js?v=tasks-20261028" defer></script>
+  <script src="quality-model.js?v=tasks-20261028" defer></script>
+  <script src="quality-center.js?v=tasks-20261028" defer></script>
+  <script src="body-trends-model.js?v=tasks-20261028" defer></script>
+  <script src="body-trends.js?v=tasks-20261028" defer></script>
+  <script src="search-model.js?v=tasks-20261028" defer></script>
+  <script src="search-center.js?v=tasks-20261028" defer></script>
+  <script src="focus-model.js?v=tasks-20261028" defer></script>
+  <script src="focus-timer.js?v=tasks-20261028" defer></script>
+  <script src="task-model.js?v=tasks-20261028" defer></script>
+  <script src="task-center.js?v=tasks-20261028" defer></script>
+  <script src="checklist-model.js?v=tasks-20261028" defer></script>
+  <script src="checklist.js?v=tasks-20261028" defer></script>
+  <script src="app.js?v=tasks-20261028" defer></script>
+</head>
+<body>
+  <svg class="svg-defs" xmlns="http://www.w3.org/2000/svg"><defs>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z"/><path d="m3 11 5 0 2-4 4 9 2-5h5"/></symbol>
+    <symbol id="i-food" viewBox="0 0 24 24"><path d="M4 3v7a3 3 0 0 0 6 0V3M7 3v18M20 21V3c-4 1-5 8 0 9"/></symbol>
+    <symbol id="i-media" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="m10 8 6 4-6 4Z"/></symbol>
+    <symbol id="i-work" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v3M3 12a23 23 0 0 0 18 0M12 11v4"/></symbol>
+    <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M20 7V5a2 2 0 0 0-2-2L5 5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1H5"/><path d="M21 12h-6v5h6M17 14.5h.1"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18M7 14l4-5 4 3 6-8"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 11h18m-13 5h.1m4 0h.1m4 0h.1"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><path d="m9 3-.5 3-2 1-2.8-1L1.8 10 4 12v2l-2.2 2 1.9 4 2.8-1 2 1 .5 3h5l.5-3 2-1 2.8 1 1.9-4-2.2-2v-2l2.2-2-1.9-4-2.8 1-2-1-.5-3Z" transform="translate(1 -1) scale(.92)"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M20 3C8 1 1 9 6 16s16 1 14-13ZM4 21 16 8M9 16l-1-6m5 2h5"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 13a9 9 0 0 1-10-10A9 9 0 1 0 21 13Z"/></symbol>
+    <symbol id="i-water" viewBox="0 0 24 24"><path d="M12 2C9 7 5 11 5 15a7 7 0 0 0 14 0c0-4-4-8-7-13ZM8 15a4 4 0 0 0 4 4"/></symbol>
+    <symbol id="i-walk" viewBox="0 0 24 24"><circle cx="14" cy="4" r="2"/><path d="m7 21 4-8 4 3v5M5 11l4-3 5 1 3 4h4m-10 0 1-5"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-export" viewBox="0 0 24 24"><path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="m14 5 5 5M4 20l5-1L21 7l-5-5L4 14Z"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M12 5C8 3 5 3 2 4v16c3-1 6-1 10 1 4-2 7-2 10-1V4c-3-1-6-1-10 1Zm0 0v16"/></symbol>
+  </defs></svg>
+  <aside class="sidebar" id="sidebar">
+    <a class="brand" href="#overview" aria-label="观己首页"><span class="brandmark"><svg><use href="#i-leaf"/></svg></span><span>观己<small>SELFSPACE</small></span></a>
+    <div class="workspace-label">我的个人空间 <span class="tiny-dot"></span></div>
+    <button class="sidebar-search" type="button" data-search="open"><svg><use href="#i-search"/></svg><span>搜索我的记录</span></button>
+    <nav class="nav" aria-label="主导航">
+      <a href="#overview" data-page="overview"><svg><use href="#i-grid"/></svg>生活总览<span class="nav-dot"></span></a>
+      <a href="#health" data-page="health"><svg><use href="#i-heart"/></svg>健康管理</a>
+      <a href="#meals" data-page="meals"><svg><use href="#i-food"/></svg>饮食记录</a>
+      <a href="#tasks" data-page="tasks"><svg><use href="#i-check"/></svg>任务清单</a>
+      <a href="#work" data-page="work"><svg><use href="#i-work"/></svg>工作与成长</a>
+      <a href="#media" data-page="media"><svg><use href="#i-media"/></svg>自媒体</a>
+      <a href="#assets" data-page="assets"><svg><use href="#i-wallet"/></svg>我的资产</a>
+      <a href="#sync" data-page="sync"><svg><use href="#i-heart"/></svg>Apple 健康同步</a>
+      <div class="nav-divider"></div>
+      <a href="#calendar" data-page="calendar"><svg><use href="#i-calendar"/></svg>生活日历</a>
+      <a href="#trends" data-page="trends"><svg><use href="#i-chart"/></svg>数据趋势</a>
+      <a href="#quality" data-page="quality"><svg><use href="#i-check"/></svg><span>数据核对</span></a>
+      <a href="#review" data-page="review"><svg><use href="#i-calendar"/></svg>每周复盘</a>
+      <a href="#journal" data-page="journal"><svg><use href="#i-book"/></svg>生活手记</a>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="sidebar-note"><svg><use href="#i-leaf"/></svg><p>把日子过成<br>自己喜欢的样子。</p><span>A LITTLE BETTER, EVERY DAY.</span></div>
+      <a href="#settings" class="settings-link"><svg><use href="#i-settings"/></svg>偏好设置 <svg><use href="#i-chevron"/></svg></a>
+      <div class="profile"><span class="avatar" id="avatar">我</span><div><strong id="profile-name">我的空间</strong><small>记录，成为更好的自己</small></div><span class="online-dot"></span></div>
+    </div>
+  </aside>
+  <div class="mobile-overlay" id="mobile-overlay"></div>
+  <div class="app-shell">
+    <header class="topbar"><div class="breadcrumb"><button class="icon-button mobile-menu" aria-label="展开导航" data-action="menu" aria-controls="sidebar" aria-expanded="false"><svg><use href="#i-menu"/></svg></button><span>我的空间</span><span class="slash">/</span><strong id="page-label">生活总览</strong></div><div class="topbar-actions"><button class="icon-button global-search-button" type="button" data-search="open" aria-label="搜索我的记录" title="搜索我的记录"><svg><use href="#i-search"/></svg></button><a class="local-status" href="#settings" aria-label="查看云端同步状态"><span class="tiny-dot"></span><span id="personal-status-text">正在连接云端</span></a><button class="icon-button" data-action="export" title="导出数据备份" aria-label="导出数据备份"><svg><use href="#i-export"/></svg></button><span class="top-avatar" id="top-avatar">我</span></div></header>
+    <div id="day-notice" class="day-notice" role="status" aria-live="polite" hidden></div>
+    <div id="draft-banner" class="day-notice draft-banner" role="status" hidden></div>
+    <main id="main"></main>
+    <footer class="footer"><span>观己 SELFSPACE <span>·</span> 每一个小记录，都算数。</span><span><svg><use href="#i-lock"/></svg><span id="storage-note">个人记录正在连接私人云端</span></span></footer>
+  </div>
+  <nav class="mobile-dock" aria-label="手机快捷导航">
+    <a href="#overview" data-page="overview"><svg><use href="#i-grid"/></svg><span>总览</span></a>
+    <a href="#health" data-page="health"><svg><use href="#i-heart"/></svg><span>健康</span></a>
+    <button class="dock-record" data-action="add" data-kind="quick" aria-label="记录此刻"><span class="dock-plus"><svg><use href="#i-plus"/></svg></span><span>记录</span></button>
+    <a href="#work" data-page="work"><svg><use href="#i-work"/></svg><span>工作</span></a>
+    <button data-action="menu" aria-controls="sidebar" aria-expanded="false"><svg><use href="#i-menu"/></svg><span>更多</span></button>
+  </nav>
+  <dialog id="modal"><div id="modal-content"></div></dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <input id="import-file" type="file" accept="application/json,.json" hidden>
+</body>
+</html>

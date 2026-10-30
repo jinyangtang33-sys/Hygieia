@@ -1,0 +1,3 @@
+# Optional: set your own private Site service access credential locally.
+# Never commit an actual value. Manual record development does not require this.
+HEALTH_SYNC_SERVICE_TOKEN=""

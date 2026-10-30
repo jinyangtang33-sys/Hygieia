@@ -1,0 +1,21 @@
+import assert from 'node:assert/strict';
+import {validateBackup} from './lib/backup-format.mjs';
+const base='http://127.0.0.1:8787',owner='synthetic-fitness-'+crypto.randomUUID(),date='2026-10-14';
+const headers={'oai-authenticated-user-id':owner,Origin:base,'Content-Type':'application/json'};
+const req=(path,body,h=headers)=>fetch(base+path,{headers:h,...(body?{method:'POST',body:JSON.stringify(body)}:{})});
+let r=await req('/api/health/connection',{});assert.equal(r.status,200);const config=await r.json(),device={'Content-Type':'application/json',...Object.fromEntries(config.headers.map(h=>[h.key,h.value]))};
+const w={id:'00000000-0000-4000-8000-000000000001',type:'running',start:'2026-10-13T23:00:00.000Z',end:'2026-10-13T23:35:00.000Z',durationSec:1800,source:'合成测试',distanceMeters:5000,energyKcal:250};
+const fitness={rings:{moveKcal:650,moveGoalKcal:500,exerciseMin:30,exerciseGoalMin:30,standHours:8,standGoalHours:12,moveMode:0},workouts:[w]};
+const body={source:'puls',days:[{date,health:{steps:4321},fitness}]};
+for(let i=0;i<2;i++){r=await req('/api/health/bridge',body,device);assert.equal(r.status,200);}
+let saved=await(await req('/api/health')).json();assert.deepEqual(saved.days[date].fitness,fitness);assert.equal(saved.days[date].health.steps,4321);assert.equal(saved.days[date].health.fitness,undefined);
+let other=await(await req('/api/health',null,{...headers,'oai-authenticated-user-id':owner+'-other'})).json();assert.equal(other.days[date],undefined);
+console.log('PASS duplicate-safe fitness sync, separation from daily metrics and owner isolation');
+r=await req('/api/health/bridge',{source:'puls',days:[{date,health:{steps:4000}}]},device);assert.equal(r.status,200);saved=await(await req('/api/health')).json();assert.deepEqual(saved.days[date].fitness,fitness);
+const bad=structuredClone(body);bad.days[0].fitness.workouts[0].distanceMeters=-1;bad.days[0].health.steps=999;
+r=await req('/api/health/bridge',bad,device);assert.equal(r.status,422);saved=await(await req('/api/health')).json();assert.equal(saved.days[date].health.steps,4000);assert.equal(saved.days[date].fitness.workouts.length,1);
+console.log('PASS older bridge compatibility and atomic validation');
+r=await req('/api/backups',{action:'create',owner});const id=(await r.json()).id;assert.ok(id);const backup=validateBackup(await(await req('/api/backups?id='+id)).json());assert.deepEqual(backup.health.find(r=>r.metric==='fitness').value.fitness,fitness);
+r=await req('/api/health/bridge',{source:'puls',days:[{date,health:{steps:4000},fitness:{rings:null,workouts:[]}}]},device);assert.equal(r.status,200);saved=await(await req('/api/health')).json();assert.equal(saved.days[date].fitness,undefined);
+const info=await(await req('/api/backups')).json();r=await req('/api/backups',{action:'restore',owner,id:crypto.randomUUID(),expected:{personal:info.revision.personal,health:info.revision.health},backup,mode:'merge',includeHealth:true});assert.equal(r.status,200);saved=await(await req('/api/health')).json();assert.deepEqual(saved.days[date].fitness,fitness);assert.equal(saved.days[date].health.steps,4000);
+console.log('PASS deleted fitness clears and complete cloud backup restores rings and training');
