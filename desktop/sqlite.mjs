@@ -10,6 +10,7 @@ export function openDatabase(filename, migrations) {
   sqlite.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;');
   try {
     sqlite.exec('CREATE TABLE IF NOT EXISTS _local_migrations (name TEXT PRIMARY KEY, sha256 TEXT NOT NULL)');
+    sqlite.exec('CREATE TABLE IF NOT EXISTS _local_preferences (key TEXT PRIMARY KEY, value TEXT NOT NULL, revision INTEGER NOT NULL)');
     for (const name of readdirSync(migrations).filter(n => /^\d+.*\.sql$/.test(n)).sort()) {
       const sql = readFileSync(join(migrations, name), 'utf8');
       const hash = createHash('sha256').update(sql).digest('hex');

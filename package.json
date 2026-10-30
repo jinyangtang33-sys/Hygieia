@@ -16,7 +16,7 @@
     "audit:public": "node scripts/audit-public.mjs",
     "build:local": "node scripts/build-local.mjs",
     "start:local": "node dist/local/server.mjs",
-    "test:local": "node scripts/build-local.mjs && node --test desktop/local.test.mjs"
+    "test:local": "node scripts/build-local.mjs && node --test desktop/local.test.mjs desktop/onboarding.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

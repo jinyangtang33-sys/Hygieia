@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp, readFile, rm} from 'node:fs/promises';
+import {mkdtemp, readFile, rm, readdir} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
-import {randomUUID} from 'node:crypto';
+import {randomUUID, createHash} from 'node:crypto';
+import {DatabaseSync} from 'node:sqlite';
 import {fileURLToPath} from 'node:url';
 import vm from 'node:vm';
 import {startLocal} from '../dist/local/server.mjs';
@@ -48,6 +49,9 @@ test('本地版的真实 API、持久化、恢复点和访问边界', async t =>
       const html = await (await fetch(app.origin, {headers:{Cookie:cookie}})).text();
       assert.match(html, /local-ui.js/);
       assert.doesNotMatch(html, /正在连接云端/);
+      const info=await (await call('/_local/info')).json();
+      assert.deepEqual(info.onboarding,{version:1,status:'pending',focus:[],revision:0});
+      assert.equal(info.hasRecords,false);
     });
     await t.test('真实任务写入、重试幂等、过期修改不能覆盖新值', async () => {
       const op = operation(task);
@@ -86,7 +90,22 @@ test('本地版的真实 API、持久化、恢复点和访问边界', async t =>
       const info=await (await call('/api/backups')).json();
       assert.equal(info.scheduled.lastStatus,'success');
     });
-    await t.test('重复启动复用实例，退出后重启保留数据并使旧会话失效', async () => {
+    await t.test('引导偏好受授权与版本保护，不改变已有记录', async () => {
+      const body={version:1,status:'complete',focus:['health','tasks'],expectedRevision:0};
+      assert.equal((await fetch(app.origin+'/_local/onboarding',{method:'POST',headers:{Origin:app.origin,'Content-Type':'application/json'},body:JSON.stringify(body)})).status,401);
+      assert.equal((await call('/_local/onboarding',body,{Origin:'https://untrusted.example'})).status,403);
+      assert.equal((await call('/_local/onboarding',{...body,focus:['unknown']})).status,422);
+      const saved=await call('/_local/onboarding',body);
+      assert.equal(saved.status,200,await saved.clone().text());
+      assert.deepEqual((await saved.json()).onboarding,{version:1,status:'complete',focus:['tasks','health'],revision:1});
+      assert.equal((await call('/_local/onboarding',{...body,status:'skipped',focus:[]})).status,409);
+      const records=await (await call('/api/personal')).json();
+      assert.equal(records.records.find(r=>r.key==='todo/local-synthetic').value.title,'已更新');
+      assert.equal((await (await call('/_local/info')).json()).hasRecords,true);
+      const nickname=await call('/api/personal',{owner:app.owner,operations:[{id:randomUUID(),key:'settings/name',baseRevision:0,value:'合成昵称'}]});
+      assert.equal(nickname.status,200);
+    });
+    await t.test('重复启动复用实例，退出后重启保留数据、偏好并使旧会话失效', async () => {
       const reused=await startLocal({dataDir,port,open:false}); assert.equal(reused.reused,true);
       const owner=app.owner,oldCookie=cookie;
       await app.close();
@@ -96,9 +115,33 @@ test('本地版的真实 API、持久化、恢复点和访问边界', async t =>
       await login();
       const persisted=await (await call('/api/personal')).json();
       assert.equal(persisted.records.find(r=>r.key==='todo/local-synthetic').value.title,'已更新');
+      assert.equal(persisted.records.find(r=>r.key==='settings/name').value,'合成昵称');
+      assert.equal((await (await call('/_local/info')).json()).onboarding.status,'complete');
       assert.equal((await readFile(path.join(dataDir,'profile.json'),'utf8')).includes(owner),true);
     });
   } finally { await app.close(); await rm(dataDir,{recursive:true,force:true}); }
+});
+
+test('升级没有引导表的旧数据库时，保留原记录、称呼和已应用迁移',async()=>{
+  const dir=await mkdtemp(path.join(tmpdir(),'hygieia-upgrade-'));
+  const filename=path.join(dir,'old.sqlite'),migrations=path.join(root,'drizzle');
+  const old=new DatabaseSync(filename);
+  old.exec('CREATE TABLE _local_migrations(name TEXT PRIMARY KEY,sha256 TEXT NOT NULL)');
+  for(const name of (await readdir(migrations)).filter(name=>/^\d+.*\.sql$/.test(name)).sort()){
+    const sql=await readFile(path.join(migrations,name),'utf8');
+    old.exec(sql);old.prepare('INSERT INTO _local_migrations VALUES (?,?)').run(name,createHash('sha256').update(sql).digest('hex'));
+  }
+  old.prepare('INSERT INTO personal_records VALUES (?,?,?,?,?)').run('synthetic-upgrade','settings/name',JSON.stringify('旧版合成昵称'),4,'2030-01-01');
+  old.prepare('INSERT INTO personal_records VALUES (?,?,?,?,?)').run('synthetic-upgrade','day/2030-01-01/journal',JSON.stringify('合成旧记录'),7,'2030-01-01');
+  old.close();
+  const current=openDatabase(filename,migrations);
+  try{
+    assert.equal(await current.prepare('SELECT count(*) AS n FROM _local_migrations').first('n'),5);
+    assert.equal(await current.prepare('SELECT count(*) AS n FROM _local_preferences').first('n'),0);
+    const rows=(await current.prepare('SELECT * FROM personal_records ORDER BY record_key').all()).results;
+    assert.equal(rows.length,2);assert.equal(rows[0].revision,7);assert.equal(rows[1].revision,4);
+    assert.equal(JSON.parse(rows[1].value),'旧版合成昵称');
+  }finally{current.close();await rm(dir,{recursive:true,force:true});}
 });
 
 test('SQLite 批量事务失败时回滚，迁移重开不重复应用', async () => {

@@ -8,6 +8,7 @@ import {randomBytes, randomUUID, timingSafeEqual} from 'node:crypto';
 import {spawn} from 'node:child_process';
 import {openDatabase} from './sqlite.mjs';
 import {configureLocalDatabase} from './local-env.mjs';
+import {onboardingModel} from './onboarding-format.mjs';
 
 const bundle = path.dirname(fileURLToPath(import.meta.url));
 export function defaultDataDirectory() {
@@ -96,6 +97,14 @@ export async function startLocal({dataDir = defaultDataDirectory(), port = 8797,
     db = openDatabase(dbFile, path.join(bundle, 'drizzle'));
     chmodSync(dbFile, 0o600);
     configureLocalDatabase(db);
+    const onboarding = async () => {
+      const row = await db.prepare('SELECT value,revision FROM _local_preferences WHERE key=?').bind('onboarding').first();
+      if (!row) return {version:1,status:'pending',focus:[],revision:0};
+      try {
+        const value = onboardingModel.normalize({...JSON.parse(row.value), expectedRevision:row.revision});
+        return {version:1,status:value.status,focus:value.focus,revision:row.revision};
+      } catch { return {version:1,status:'pending',focus:[],revision:row.revision}; }
+    };
     const version = JSON.parse(await readFile(path.join(bundle, 'version.json'), 'utf8'));
     const handlers = new Map();
     for (const route of version.routes) handlers.set('/api/' + route, await import(pathToFileURL(path.join(bundle, 'app/api', route, 'route.mjs')).href));
@@ -132,7 +141,28 @@ export async function startLocal({dataDir = defaultDataDirectory(), port = 8797,
       if (request.headers.origin && request.headers.origin !== origin) return json({error: '请求来源无效。'}, 403);
       const safe = ['GET', 'HEAD'].includes(request.method);
       if (!safe && request.headers.origin !== origin) return json({error: '写入需要当前页面授权。'}, 403);
-      if (url.pathname === '/_local/info' && request.method === 'GET') return json({...version, dataDir, owner, local: true});
+      if (url.pathname === '/_local/info' && request.method === 'GET') {
+        const counts = await db.prepare("SELECT (SELECT count(*) FROM personal_records WHERE value IS NOT NULL AND record_key NOT LIKE 'settings/%') + (SELECT count(*) FROM health_daily) AS records").first();
+        return json({...version, dataDir, owner, local:true, platform:process.platform, onboarding:await onboarding(), hasRecords:counts.records > 0});
+      }
+      if (url.pathname === '/_local/onboarding' && request.method === 'POST') {
+        if (!request.headers['content-type']?.toLowerCase().startsWith('application/json')) return json({error:'请使用 JSON 格式保存。'},415);
+        if (Number(request.headers['content-length']) > 4096) return json({error:'引导设置内容过大。'},413);
+        const chunks=[]; let length=0;
+        for await (const chunk of request) {
+          length+=chunk.length;
+          if (length>4096) return json({error:'引导设置内容过大。'},413);
+          chunks.push(chunk);
+        }
+        let value;
+        try { value=onboardingModel.normalize(JSON.parse(Buffer.concat(chunks).toString('utf8'))); }
+        catch (error) { return json({error:error instanceof SyntaxError?'设置格式无效。':error.message},422); }
+        const stored=JSON.stringify({version:1,status:value.status,focus:value.focus});
+        const result=await db.prepare('INSERT INTO _local_preferences(key,value,revision) SELECT ?,?,1 WHERE ?=0 OR EXISTS(SELECT 1 FROM _local_preferences WHERE key=?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,revision=_local_preferences.revision+1 WHERE _local_preferences.revision=?')
+          .bind('onboarding',stored,value.expectedRevision,'onboarding',value.expectedRevision).run();
+        if (!result.meta.changes) return json({error:'使用偏好已在其他窗口更新，请重新打开引导后再保存。',onboarding:await onboarding()},409);
+        return json({ok:true,onboarding:await onboarding()});
+      }
       if (url.pathname === '/_local/folder' && request.method === 'POST') { openTarget(dataDir); return json({ok:true}); }
       if (url.pathname === '/_local/stop' && request.method === 'POST') {
         setTimeout(() => void close(), 100);

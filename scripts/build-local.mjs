@@ -37,7 +37,7 @@ async function compile(relative) {
 const routes = ['personal', 'personal/history', 'ledger', 'backups', 'health', 'health/connection'];
 for (const route of routes) await compile(`app/api/${route}/route.ts`);
 await compile('lib/backup-store.ts');
-for (const name of ['server.mjs', 'sqlite.mjs', 'local-env.mjs']) await cp(path.join(root, 'desktop', name), path.join(output, name));
+for (const name of ['server.mjs', 'sqlite.mjs', 'local-env.mjs', 'onboarding-format.mjs']) await cp(path.join(root, 'desktop', name), path.join(output, name));
 await cp(path.join(root, 'public'), path.join(output, 'public'), {recursive: true});
 const cssFile = path.join(output, 'public', 'styles.css');
 await writeFile(cssFile, (await readFile(cssFile, 'utf8')).replace(/^@import url\('https:\/\/fonts\.googleapis\.com\/[^']+'\);\s*/, ''));
@@ -67,9 +67,16 @@ for (const file of await readdir(path.join(output, 'public'))) {
 }
 await cp(path.join(root, 'desktop', 'local-ui.js'), path.join(output, 'public', 'local-ui.js'));
 new Script(await readFile(path.join(output, 'public', 'local-ui.js'), 'utf8'), {filename:'local-ui.js'});
+const modelSource = (await readFile(path.join(root,'desktop','onboarding-format.mjs'),'utf8')).replace('export const onboardingModel', 'const LocalOnboardingModel');
+new Script(modelSource, {filename:'local-onboarding-model.js'});
+await writeFile(path.join(output,'public','local-onboarding-model.js'),modelSource);
+const onboardingUI = await readFile(path.join(root,'desktop','onboarding-ui.js'),'utf8');
+new Script(onboardingUI, {filename:'local-onboarding.js'});
+await writeFile(path.join(output,'public','local-onboarding.js'),onboardingUI);
+await cp(path.join(root,'desktop','onboarding.css'),path.join(output,'public','local-onboarding.css'));
 await mkdir(path.join(output, 'ui'));
 let shell = localWording(await readFile(path.join(root, 'ui', 'shell.html'), 'utf8'));
-shell = shell.replace('<head>', '<head>\n  <script src="/local-ui.js" defer></script>');
+shell = shell.replace('<head>', '<head>\n  <link rel="stylesheet" href="/local-onboarding.css">\n  <script src="/local-onboarding-model.js" defer></script>\n  <script src="/local-ui.js" defer></script>\n  <script src="/local-onboarding.js" defer></script>');
 await writeFile(path.join(output, 'ui', 'shell.html'), shell);
 await cp(path.join(root, 'drizzle'), path.join(output, 'drizzle'), {recursive: true, filter: s => !s.includes(`${path.sep}meta`)});
 const pkg = JSON.parse(await readFile(path.join(root, 'desktop/release.json'), 'utf8'));
