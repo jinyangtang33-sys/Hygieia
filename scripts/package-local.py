@@ -33,7 +33,7 @@ def main():
     app = ROOT / "dist/local"
     if not (app / "server.mjs").exists():
         raise SystemExit("Run node scripts/build-local.mjs first")
-    version = json.loads((ROOT / "desktop/release.json").read_text())["version"]
+    version = json.loads((ROOT / "desktop/release.json").read_text(encoding="utf-8"))["version"]
     if not re.fullmatch(r"\d+\.\d+\.\d+(?:-[a-z0-9.]+)?", version):
         raise SystemExit("Invalid release version")
     cache = ROOT / "dist/runtime-cache"
@@ -42,7 +42,7 @@ def main():
     download("https://nodejs.org/dist/latest-v22.x/SHASUMS256.txt", checksums)
     extension = ".zip" if target.startswith("win-") else ".tar.gz"
     pattern = re.compile(r"^([a-f0-9]{64})\s+(node-(v22\.\d+\.\d+)-" + re.escape(target + extension) + r")$")
-    selected = [match for line in checksums.read_text().splitlines() if (match := pattern.fullmatch(line.strip()))]
+    selected = [match for line in checksums.read_text(encoding="utf-8").splitlines() if (match := pattern.fullmatch(line.strip()))]
     if len(selected) != 1:
         raise SystemExit("Official runtime checksum entry missing or ambiguous")
     expected, filename, node_version = selected[0].groups()
@@ -83,13 +83,13 @@ def main():
         signing = "ad-hoc-not-notarized"
         subprocess.run(["codesign", "--verify", str(executable)], check=True)
     (output / "runtime/NODE-LICENSE.txt").write_bytes(license_text)
-    (output / "runtime/PROVENANCE.json").write_text(json.dumps({"version": node_version, "archive": filename, "url": url, "sha256": expected, "executableSigning": signing}, indent=2) + "\n")
+    (output / "runtime/PROVENANCE.json").write_text(json.dumps({"version": node_version, "archive": filename, "url": url, "sha256": expected, "executableSigning": signing}, indent=2) + "\n", encoding="utf-8")
     if target.startswith("win-"):
         launcher = output / "Start-Hygieia.cmd"
         launcher.write_bytes(b'@echo off\r\ncd /d "%~dp0"\r\n"runtime\\node.exe" --no-warnings "app\\server.mjs"\r\nif errorlevel 1 pause\r\n')
     else:
         launcher = output / ("启动观己.command" if target.startswith("darwin-") else "Start-Hygieia.sh")
-        launcher.write_text('#!/bin/sh\ncd -- "$(dirname -- "$0")" || exit 1\n./runtime/node --no-warnings app/server.mjs\nresult=$?\nif [ "$result" -ne 0 ]; then\n  printf "启动未完成，请查看上方提示。按回车关闭。\\n"\n  read -r answer\nfi\nexit "$result"\n')
+        launcher.write_text('#!/bin/sh\ncd -- "$(dirname -- "$0")" || exit 1\n./runtime/node --no-warnings app/server.mjs\nresult=$?\nif [ "$result" -ne 0 ]; then\n  printf "启动未完成，请查看上方提示。按回车关闭。\\n"\n  read -r answer\nfi\nexit "$result"\n', encoding="utf-8")
         launcher.chmod(0o755)
     shutil.copy2(ROOT / "docs/LOCAL_EDITION.md", output / "使用说明.md")
     for file in ["LICENSE", "THIRD_PARTY_NOTICES.md"]:
@@ -100,7 +100,7 @@ def main():
             raise SystemExit("Symlinks are not allowed in the release")
         if file.is_file():
             manifest[file.relative_to(output).as_posix()] = hashlib.sha256(file.read_bytes()).hexdigest()
-    (output / "FILES-SHA256.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
+    (output / "FILES-SHA256.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     zipped = Path(str(output) + ".zip")
     with zipfile.ZipFile(zipped, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as archive_file:
         for file in sorted(output.rglob("*")):
@@ -112,10 +112,10 @@ def main():
                 info.external_attr = (stat.S_IFREG | mode) << 16
                 archive_file.writestr(info, file.read_bytes(), compress_type=zipfile.ZIP_DEFLATED)
     checksum_file = Path(str(zipped) + ".sha256")
-    checksum_file.write_text(hashlib.sha256(zipped.read_bytes()).hexdigest() + "  " + zipped.name + "\n")
+    checksum_file.write_text(hashlib.sha256(zipped.read_bytes()).hexdigest() + "  " + zipped.name + "\n", encoding="utf-8")
     print(f"Packaged {zipped.name}; verified Node {node_version}; {len(manifest)} app/runtime files")
     if os.environ.get("GITHUB_OUTPUT"):
-        with open(os.environ["GITHUB_OUTPUT"], "a") as output_file:
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output_file:
             output_file.write(f"platform={target}\nversion={version}\n")
 
 

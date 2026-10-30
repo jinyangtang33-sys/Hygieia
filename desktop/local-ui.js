@@ -23,16 +23,22 @@ document.addEventListener('DOMContentLoaded', () => {
   const style = document.createElement('style');
   style.textContent = '.local-edition-panel{margin-top:24px}.local-edition-panel code{overflow-wrap:anywhere}.local-stop{margin-left:8px}';
   document.head.append(style);
-  let info;
+  let info, stopped = false;
+  const markStopped = panel => {
+    panel.querySelectorAll('[data-local]').forEach(button => { button.disabled = true; });
+    panel.querySelector('#local-edition-message').textContent = '本地服务已退出，可以关闭浏览器。下次双击启动文件即可继续使用。';
+  };
   function mount() {
     if (page !== 'settings' || document.querySelector('#local-edition-panel') || !info) return;
     const panel = document.createElement('section');
     panel.id = 'local-edition-panel'; panel.className = 'panel local-edition-panel';
     panel.innerHTML = '<h2>本地版 · ' + esc(info.version) + '</h2><p>数据目录：<code>' + esc(info.dataDir) + '</code></p><p>无需注册，不会自动跨设备同步。更新时替换程序文件，保留此数据目录即可。定时恢复点仅在本地程序运行时执行，仍需定期导出备份到其他位置。</p><button class="btn" data-local="folder">打开数据目录</button><button class="btn local-stop" data-local="stop">退出本地服务</button><p role="status" id="local-edition-message"></p>';
+    if (stopped) markStopped(panel);
     document.querySelector('#main')?.append(panel);
   }
   document.addEventListener('click', async event => {
     const button = event.target.closest('[data-local]'); if (!button) return;
+    if (stopped) return;
     try {
       if (button.dataset.local === 'stop') {
         if (recordDraftDirty || journalDirty || reviewDirty) { toast('请先保存当前填写内容再退出。', true); return; }
@@ -44,8 +50,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const response = await fetch('/_local/' + button.dataset.local, {method:'POST'});
       if (!response.ok) throw Error('操作未完成，请重试。');
       if (button.dataset.local === 'stop') {
-        document.querySelector('#local-edition-message').textContent = '本地服务已退出，可以关闭浏览器。下次双击启动文件即可继续使用。';
-        button.disabled = true;
+        stopped = true;
+        const panel = document.querySelector('#local-edition-panel');
+        if (panel) markStopped(panel);
       }
     } catch (error) { toast(error.message, true); }
   });
