@@ -1,0 +1,6 @@
+# Keep migration checksums and executable scripts identical across platforms.
+* text=auto eol=lf
+# Upstream OCR assets are verified byte-for-byte; never rewrite their bytes.
+public/vendor/body-ocr/** -text
+*.gz -text
+*.zip -text
