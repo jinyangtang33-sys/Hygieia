@@ -13,7 +13,10 @@
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
     "test": "node scripts/test-unit.mjs",
-    "audit:public": "node scripts/audit-public.mjs"
+    "audit:public": "node scripts/audit-public.mjs",
+    "build:local": "node scripts/build-local.mjs",
+    "start:local": "node dist/local/server.mjs",
+    "test:local": "node scripts/build-local.mjs && node --test desktop/local.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

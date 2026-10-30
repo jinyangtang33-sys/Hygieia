@@ -6,6 +6,12 @@ Personal dashboard for health, tasks, meals, work, content planning and personal
 
 项目原创部分采用 [MIT](LICENSE) 协议。第三方代码和 OCR 模型保留各自许可证，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
+## 直接使用：本地试用版
+
+不准备开发代码？前往 [Releases](https://github.com/jinyangtang33-sys/Hygieia/releases) 选择 **Hygieia 本地版 ZIP**：Mac Intel 选 `darwin-x64`，Apple 芯片选 `darwin-arm64`，Windows 选 `win-x64`。完整解压后双击启动文件，浏览器自动打开，数据库自动创建，无需安装 Node.js 或登录 ChatGPT。不要把 GitHub 自动生成的 Source code 当作启动包。
+
+本地版数据保存在自己的电脑，不会自动上传或跨设备同步。Apple 健康自动连接尚未适配本地版，先使用手动记录、体脂秤报告或 JSON 备份导入。Mac 包尚未公证签名；这是试用版，请先阅读 [本地版使用说明](docs/LOCAL_EDITION.md)。只有打包和测试全部成功后，Releases 才会出现对应版本；Actions 中也会保留测试通过的构建文件。
+
 ## 功能
 
 - 健康记录、活动圆环与训练摘要、体脂秤报告导入和趋势。
@@ -22,7 +28,7 @@ Personal dashboard for health, tasks, meals, work, content planning and personal
 
 ## 先了解运行边界
 
-**当前后端适配 ChatGPT Sites 的私人站点认证和 Cloudflare D1 运行环境。** 源码公开不代表个人数据公开，也不意味着可以直接部署到任意公开服务器。
+**云端版后端适配 ChatGPT Sites 的私人站点认证和 Cloudflare D1 运行环境；本地版使用独立回环服务、SQLite 和本机会话。** 源码公开不代表个人数据公开，也不意味着可以直接部署到任意公开服务器。
 
 API 信任托管网关注入的用户身份请求头。生产环境必须由可信网关完成登录、移除访客伪造的身份头并限制后台端点访问。单独将 Worker 暴露到公网并不能获得等价认证；直接托管到其他平台前需要实现认证适配。详见 [部署说明](docs/DEPLOYMENT.md) 和 [安全说明](SECURITY.md)。
 
@@ -30,7 +36,16 @@ API 信任托管网关注入的用户身份请求头。生产环境必须由可�
 
 ## 本地开发
 
-需要 Node.js **22.13 或更新版本** 和 npm。Mac 健康中转另外需要 Python 3；钥匙串组件需要 macOS 和 Xcode Command Line Tools。
+本地版开发只需 Node.js **22.13 或更新版本**，不需要安装 npm 依赖：
+
+```sh
+git clone https://github.com/jinyangtang33-sys/Hygieia.git
+cd Hygieia
+node scripts/build-local.mjs
+node dist/local/server.mjs
+```
+
+以下为云端版框架开发流程，需要 Node.js 和 npm。Mac 健康中转另外需要 Python 3；钥匙串组件需要 macOS 和 Xcode Command Line Tools。
 
 ```sh
 git clone https://github.com/jinyangtang33-sys/Hygieia.git
@@ -96,9 +111,10 @@ Mac 中转需要开机联网；iOS 后台投递不保证实时。每位部署者
 | `mac-bridge/` | 本机 PulsHealth 接收与转发 |
 | `scripts/` | 安装、测试和公开内容审计 |
 | `docs/` | 部署和发布边界 |
+| `desktop/` | 本地服务、SQLite 适配、集成测试与发布版本 |
 
 ## 参与
 
-GitHub 仓库是公开源码和版本历史的入口。后续功能先在开发分支中修改，用合成数据验证，再通过 PR 合入 `main`。仓库的 GitHub Actions 会运行离线测试、Mac 接收器测试和公开内容审计；当前没有自动部署工作流，合并代码后仍需单独部署到自己的私人站点。生产数据库、健康记录与同步密钥不随 Git 提交。
+GitHub 仓库是公开源码和版本历史的入口。小修复验证后可直接提交 `main`，较大改动建议开发分支和 PR。GitHub Actions 会运行离线测试、Mac 接收器测试、本地集成测试和公开内容审计。本地发布相关修改会触发三平台构建，版本号更新后在全部通过时发布新的 alpha 下载包；不会覆盖已有版本。网站没有自动部署工作流，代码提交后仍需单独部署到自己的私人站点。生产数据库、健康记录与同步密钥不随 Git 提交。
 
 欢迎提交可复现的问题与改进。请阅读 [贡献指南](CONTRIBUTING.md)，仅使用合成账号、假密钥和虚构报告。健康截图、原始样本、个人财务记录、生产日志及实际连接配置不要出现在 Issue 或 PR 中。

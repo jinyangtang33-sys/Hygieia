@@ -1,0 +1,73 @@
+name: Local edition packages
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - desktop/**
+      - scripts/build-local.mjs
+      - scripts/package-local.py
+      - scripts/smoke-local-package.py
+      - docs/LOCAL_EDITION.md
+      - .github/workflows/local-release.yml
+permissions:
+  contents: read
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15-intel, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Core offline tests
+        run: npm test
+      - name: Build and test local server
+        run: npm run test:local
+      - name: Audit public source
+        run: npm run audit:public
+      - name: Package official runtime
+        id: package
+        run: python scripts/package-local.py
+      - name: Test extracted package using bundled Node
+        run: python scripts/smoke-local-package.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: local-${{ steps.package.outputs.platform }}
+          path: |
+            releases/*.zip
+            releases/*.sha256
+          if-no-files-found: error
+          retention-days: 14
+  release:
+    needs: package
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: local-*
+          path: release-files
+          merge-multiple: true
+      - name: Publish a new alpha version after all platform checks pass
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          version=$(node -p "JSON.parse(require('fs').readFileSync('desktop/release.json','utf8')).version")
+          tag="v$version"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "This version already exists; tested packages remain in Actions artifacts. Bump desktop/release.json for a new release."
+          else
+            gh release create "$tag" release-files/* --target "$GITHUB_SHA" --prerelease --title "Hygieia 本地版 $version" --notes-file desktop/RELEASE_NOTES.md
+          fi

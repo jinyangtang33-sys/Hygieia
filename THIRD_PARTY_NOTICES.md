@@ -10,5 +10,6 @@ The root MIT license covers this project's original code. It does not replace th
 | PulsHealth SQLite receiver | Apache-2.0, `mac-bridge/vendor/PulsHealth-LICENSE` and `NOTICE.md` |
 | Nayuki QR Code generator | MIT copyright/license retained in `mac-bridge/vendor/qrcodegen.py` |
 | Vendored shadcn stylesheet | `vendor/shadcn-tailwind-4.13.0.LICENSE.md` |
+| Node.js in optional standalone ZIPs | Node.js and its bundled components retain the official runtime archive's full `LICENSE`, redistributed as `runtime/NODE-LICENSE.txt`; source URL and archive SHA-256 in `runtime/PROVENANCE.json` |
 
 OCR asset hashes and sources are recorded in `public/vendor/body-ocr/SHA256SUMS.json` and `NOTICE.md`. Other npm dependencies retain their respective upstream licenses and are installed separately; they are pinned by `package-lock.json` and not redistributed as `node_modules`.
